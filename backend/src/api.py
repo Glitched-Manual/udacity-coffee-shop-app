@@ -1,4 +1,4 @@
-import os
+import os, sys
 from flask import Flask, request, jsonify, abort
 from sqlalchemy import exc
 import json
@@ -18,7 +18,7 @@ CORS(app)
 !! Running this funciton will add one
 '''
 # to reset the db
-#db_drop_and_create_all()
+db_drop_and_create_all()
 
 # ROUTES
 '''
@@ -36,18 +36,37 @@ def get_drinks():
         
         drinks = Drink.query.all()
         
-        if len(drinks) < 1:
+        if len(drinks) == 0:
+            print("No drinks found")
             abort(404)
         
         # format the return drinks with short
-
+        #all_drinks = [drink.short() for drink in drinks]
+        all_drinks = []
+        
+        #print(drinks[0].id)
+        
+        
+        for drink in drinks:
+            
+            print(type(drink.recipe))
+            
+            drink_param = {
+                'title': drink.title,
+                'recipe': drink.recipe
+            }
+            
+        
+            all_drinks.append(drink_param)
+        
         return jsonify({
             'success' : True,
-            'drinks' : [drinks.short() for drink in drinks]
+            'drinks' : [drink.short() for drink in drinks]
 
         })
     
-    except:
+    except Exception as e:
+        print(e)
         abort(404)
 
 '''
@@ -60,7 +79,7 @@ def get_drinks():
 '''
 @app.route('/drinks-detail')
 @requires_auth('get:drinks-detail')
-def get_drinks_detail():
+def get_drinks_detail(jwt):
     
     try:
         
@@ -89,29 +108,35 @@ def get_drinks_detail():
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks', methods=['POST'])
+@app.route('/drinks', methods=["POST"])
 @requires_auth('post:drinks')
-def create_drink(): 
-
+def create_drink(jwt): 
+    
     try:
         body = request.get_json()
-        if not body.find('recipe'):
-            abort(422)
+        #print(f'{body}')
+        #sprint(f'body.find(\'recipe\') = {body.find("recipe")}')
+        if not ('title' in body and 'recipe' in body):
+                print("failed")
+                abort(422)
 
         drink_title = body.get('title')
+        #print(f'{drink_title}')
         drink_recipe = body.get('recipe')
         
-        new_drink = Drink(title=drink_title,recipe=drink_recipe)
+        #print(f'878787 drink_title ={drink_title}\n drink_title = {drink_recipe} 67676')
+
+        new_drink = Drink(title=drink_title, recipe=json.dumps(drink_recipe))
         new_drink.insert()
         return jsonify({
             'success': True,
-            'drink': new_drink
+            'drink': new_drink.long()
     })
 
 
-    except:
+    except Exception as e:
+        print('ERROR: ', str(e))
         abort(422)
-    
 
 '''
 @TODO implement endpoint
@@ -164,6 +189,13 @@ def unprocessable(error):
 
 '''
 
+@app.errorhandler(404)
+def unprocessable(error):
+    return jsonify({
+                    "success": False,
+                    "error": 404,
+                    "message": "resource not found"
+                    }), 404
 '''
 @TODO implement error handler for 404
     error handler should conform to general task above
@@ -174,3 +206,10 @@ def unprocessable(error):
 @TODO implement error handler for AuthError
     error handler should conform to general task above
 '''
+@app.errorhandler(401)
+def unprocessable(error):
+    return jsonify({
+                    "success": False,
+                    "error": 401,
+                    "message": "resource not found"
+                    }), 401
