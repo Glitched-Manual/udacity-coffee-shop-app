@@ -4,13 +4,11 @@ from functools import wraps
 from jose import jwt
 from urllib.request import urlopen
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
 
-AUTH0_DOMAIN = os.getenv('AUTH_DOMAIN')
-ALGORITHMS = [os.getenv('AUTH_ALGORITHMS')]
-API_AUDIENCE = os.getenv('API_AUDIENCE_VALUE')
+AUTH0_DOMAIN = 'manualdev.us.auth0.com'
+ALGORITHMS = 'RS256'
+API_AUDIENCE = 'coffee_api'
 
 ## AuthError Exception
 '''
@@ -108,7 +106,7 @@ def check_permissions(permission, payload):
     !!NOTE urlopen has a common certificate error described here: https://stackoverflow.com/questions/50236117/scraping-ssl-certificate-verify-failed-error-for-http-en-wikipedia-org
 '''
 def verify_decode_jwt(token):
-    print(f'***** auth domain {AUTH0_DOMAIN} *****')
+    #print(f'***** auth domain {AUTH0_DOMAIN} *****')
     jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
     jwks = json.loads(jsonurl.read())
     

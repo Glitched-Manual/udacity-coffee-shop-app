@@ -18,7 +18,7 @@ CORS(app)
 !! Running this funciton will add one
 '''
 # to reset the db
-db_drop_and_create_all()
+#db_drop_and_create_all()
 
 # ROUTES
 '''
@@ -37,32 +37,15 @@ def get_drinks():
         drinks = Drink.query.all()
         
         if len(drinks) == 0:
-            print("No drinks found")
+            print("error no drinks found")
             abort(404)
         
         # format the return drinks with short
-        #all_drinks = [drink.short() for drink in drinks]
-        all_drinks = []
-        
-        #print(drinks[0].id)
-        
-        
-        for drink in drinks:
-            
-            print(type(drink.recipe))
-            
-            drink_param = {
-                'title': drink.title,
-                'recipe': drink.recipe
-            }
-            
-        
-            all_drinks.append(drink_param)
-        
+        shortened_drinks = [drink.short() for drink in drinks]
+
         return jsonify({
             'success' : True,
-            'drinks' : [drink.short() for drink in drinks]
-
+            'drinks' : shortened_drinks
         })
     
     except Exception as e:
@@ -85,18 +68,20 @@ def get_drinks_detail(jwt):
         
         drinks = Drink.query.all()
         
-        if len(drinks) < 1:
+        if len(drinks) == 0:
+            print("error no drinks found")
             abort(404)
         
         # format the return drinks with short
 
         return jsonify({
             'success' : True,
-            'drinks' : [drinks.long() for drink in drinks]
+            'drinks' : [drink.long() for drink in drinks]
 
         })
     
-    except:
+    except Exception as e:
+        print(e)
         abort(404)
 
 '''
@@ -117,21 +102,22 @@ def create_drink(jwt):
         #print(f'{body}')
         #sprint(f'body.find(\'recipe\') = {body.find("recipe")}')
         if not ('title' in body and 'recipe' in body):
-                print("failed")
+                #print("failed")
                 abort(422)
 
         drink_title = body.get('title')
         #print(f'{drink_title}')
         drink_recipe = body.get('recipe')
         
-        #print(f'878787 drink_title ={drink_title}\n drink_title = {drink_recipe} 67676')
+       
 
         new_drink = Drink(title=drink_title, recipe=json.dumps(drink_recipe))
         new_drink.insert()
+
         return jsonify({
             'success': True,
-            'drink': new_drink.long()
-    })
+            'drink': [new_drink.long()]
+        })
 
 
     except Exception as e:
@@ -149,7 +135,36 @@ def create_drink(jwt):
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<id>', methods=['PATCH'])
+@requires_auth('patch:drinks')
+def patch_drink_by_id(jwt,id):
 
+    drink = Drink.query.get(id)
+
+    if drink == None:
+        abort(404)
+
+    try:
+        body = request.get_json()
+        data_changed = False
+
+        if 'title' in body:
+            drink.title = body.get('title')
+            data_changed = True
+
+        if data_changed == False:            
+            abort(400)
+
+        drink.update()
+
+        return jsonify({
+            'success': True,
+            'drink': [drink.long()]
+        })
+
+    except Exception as e:
+        print('ERROR: ', str(e))
+        abort(422)
 
 '''
 @TODO implement endpoint
@@ -161,7 +176,27 @@ def create_drink(jwt):
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<id>', methods=['DELETE'])
+@requires_auth('delete:drinks')
+def delete_drink_by_id(jwt,id):
+    
+    try:
+       
+        drink_to_delete = Drink.query.get(id)
 
+        if drink_to_delete == None:
+            abort(404)
+        
+        drink_to_delete.delete()
+
+        return jsonify({
+            'success': True,
+            'delete': id
+        })
+
+    except Exception as e:
+        print('ERROR: ', str(e))
+        abort(422)
 
 # Error Handling
 '''
@@ -169,13 +204,7 @@ Example error handling for unprocessable entity
 '''
 
 
-@app.errorhandler(422)
-def unprocessable(error):
-    return jsonify({
-        "success": False,
-        "error": 422,
-        "message": "unprocessable"
-    }), 422
+
 
 
 '''
@@ -200,7 +229,13 @@ def unprocessable(error):
 @TODO implement error handler for 404
     error handler should conform to general task above
 '''
-
+@app.errorhandler(422)
+def unprocessable(error):
+    return jsonify({
+        "success": False,
+        "error": 422,
+        "message": "unprocessable"
+    }), 422
 
 '''
 @TODO implement error handler for AuthError
@@ -213,3 +248,16 @@ def unprocessable(error):
                     "error": 401,
                     "message": "resource not found"
                     }), 401
+
+
+@app.errorhandler(AuthError)
+def handle_auth_error(ex):
+    return jsonify({
+                    "success": False,
+                    "error": ex.status_code,
+                    "message": ex.error
+                    }), ex.status_code
+
+
+
+   
